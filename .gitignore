@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+.linkedin_token.json
+.telegram_bot_admins.json
+.hue_state.json
