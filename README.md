@@ -33,8 +33,10 @@ Telegram → telegram_bot.py → Claude API (brain)
 ### Installation
 
 ```bash
-pip install python-telegram-bot[job-queue] anthropic
+pip install -r requirements.txt
 ```
+
+> **Note:** python-telegram-bot v22+ has compatibility issues with Python 3.9 when using the job queue. The requirements.txt pins v21.x which works reliably.
 
 ### Configuration
 
