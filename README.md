@@ -69,6 +69,25 @@ curl -X POST http://YOUR_HUE_IP/api -d '{"devicetype":"home-bot"}'
 python3 telegram_bot.py
 ```
 
+### Run as a macOS service (auto-start on boot)
+
+1. Edit `run_telegram_bot.sh` and `com.koenigreich.telegrambot.plist` to match your paths
+2. Copy the files into place:
+
+```bash
+cp run_telegram_bot.sh ~/run_telegram_bot.sh
+chmod +x ~/run_telegram_bot.sh
+cp com.koenigreich.telegrambot.plist ~/Library/LaunchAgents/
+```
+
+3. Load the service:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.koenigreich.telegrambot.plist
+```
+
+> **Important:** The LaunchAgent uses a wrapper script instead of calling the venv python directly. This is necessary because macOS resolves venv symlinks to the system Python, which breaks package imports. The wrapper script activates the venv properly before starting the bot.
+
 ## Usage
 
 Just chat with the bot in Telegram:
