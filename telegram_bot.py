@@ -720,6 +720,52 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Error: {e}")
 
 
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle voice messages: download OGG, convert to WAV, transcribe with Whisper, send to Claude."""
+    import tempfile
+    user_id = update.effective_user.id
+    if ALLOWED_USERS and user_id not in ALLOWED_USERS:
+        return
+
+    await update.message.chat.send_action("typing")
+
+    try:
+        voice = update.message.voice
+        file = await context.bot.get_file(voice.file_id)
+
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as ogg_file:
+            ogg_path = ogg_file.name
+            await file.download_to_drive(ogg_path)
+
+        wav_path = ogg_path.replace(".ogg", ".wav")
+        ffmpeg = os.path.expanduser("~/ffmpeg")
+        subprocess.run([ffmpeg, "-i", ogg_path, "-ar", "16000", "-ac", "1", wav_path, "-y"],
+                       capture_output=True, timeout=15)
+
+        whisper = os.path.expanduser("~/whisper-cli")
+        model = os.path.expanduser("~/ggml-base.bin")
+        result = subprocess.run(
+            [whisper, "-m", model, "-f", wav_path, "-l", "de", "--no-timestamps", "-np"],
+            capture_output=True, text=True, timeout=30
+        )
+        transcript = result.stdout.strip()
+
+        os.unlink(ogg_path)
+        os.unlink(wav_path)
+
+        if not transcript:
+            await update.message.reply_text("Could not understand the voice message.")
+            return
+
+        print(f"[VOICE] Transcription: {transcript}")
+        reply = ask_claude(user_id, transcript)
+        await update.message.reply_text(reply)
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Voice: {traceback.format_exc()}")
+        await update.message.reply_text(f"Voice message error: {e}")
+
+
 async def hue_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Direct /hue command for quick light control."""
     user_id = update.effective_user.id
@@ -820,6 +866,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("hue", hue_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     # Schedule daily jobs
     job_queue = app.job_queue

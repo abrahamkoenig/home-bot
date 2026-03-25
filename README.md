@@ -10,6 +10,7 @@ A personal AI home assistant running on Telegram. Chat naturally to control your
 - **Email Briefing** — Check unread emails via IMAP on demand or in the daily morning summary
 - **Calendar** — View, create, modify, and delete calendar events via Apple Calendar (sqlite3 + AppleScript)
 - **Reminders** — View, create, and complete reminders via Apple Reminders (EventKit)
+- **Voice Messages** — Send voice messages to the bot; transcribed locally via whisper.cpp (Metal-accelerated on Apple Silicon)
 - **Scheduled Automations** — Morning briefing at 7:00 (calendar + reminders + emails), evening light check at 23:00
 - **Access Control** — First user to `/start` becomes admin; no one else can use the bot
 
@@ -23,6 +24,7 @@ Telegram → telegram_bot.py → Claude API (brain)
                             → IMAP (emails)
                             → sqlite3 + AppleScript (calendar)
                             → reminders_helper (EventKit binary)
+                            → ffmpeg + whisper.cpp (voice)
 ```
 
 ## Setup
@@ -34,6 +36,8 @@ Telegram → telegram_bot.py → Claude API (brain)
 - Philips Hue Bridge
 - FRITZ!Box router (for network monitoring)
 - Swift compiler (for building reminders helper)
+- ffmpeg (for voice message conversion)
+- whisper.cpp (for local speech-to-text)
 
 ### Installation
 
@@ -50,6 +54,29 @@ swiftc reminders_helper.swift -o ~/reminders_helper -framework EventKit
 ```
 
 > On first run, macOS will prompt for Reminders access — grant it.
+
+Set up voice transcription (whisper.cpp with Metal acceleration for Apple Silicon):
+
+```bash
+# Install cmake if needed
+pip3 install cmake
+
+# Build whisper.cpp
+git clone https://github.com/ggerganov/whisper.cpp.git
+cd whisper.cpp && cmake -B build && cmake --build build --config Release
+cp build/bin/whisper-cli ~/whisper-cli
+
+# Download the base model (~141 MB)
+curl -L -o ~/ggml-base.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin
+```
+
+Install ffmpeg (for converting Telegram voice messages from OGG to WAV):
+
+```bash
+# macOS (ARM64)
+brew install ffmpeg
+# Or download a static binary and place it at ~/ffmpeg
+```
 
 ### Configuration
 
@@ -123,6 +150,7 @@ Just chat with the bot in Telegram:
 - "What reminders do I have?"
 - "Remind me to call the dentist on Friday"
 - "Dentist done"
+- Send a voice message — it gets transcribed and processed like text
 
 ## License
 
