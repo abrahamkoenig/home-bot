@@ -1,14 +1,16 @@
 # Home Bot
 
-A personal AI home assistant running on Telegram. Chat naturally to control your smart home, monitor your network, post to LinkedIn, and check your emails — all from one bot, powered by Claude.
+A personal AI home assistant running on Telegram. Chat naturally to control your smart home, monitor your network, post to LinkedIn, check your emails, manage your calendar and reminders — all from one bot, powered by Claude.
 
 ## Features
 
 - **Smart Lights** — Control Philips Hue lights via natural language ("Turn off the kitchen") or scenes ("Movie mode", "Good night")
 - **Network Monitoring** — Check connected devices and connection status via FRITZ!Box
 - **LinkedIn Integration** — Post to LinkedIn and get AI-drafted comments for engagement
-- **Email Briefing** — Check unread emails on demand or get a daily morning summary
-- **Scheduled Automations** — Morning briefing at 7:00, evening light check at 23:00
+- **Email Briefing** — Check unread emails via IMAP on demand or in the daily morning summary
+- **Calendar** — View, create, modify, and delete calendar events via Apple Calendar (sqlite3 + AppleScript)
+- **Reminders** — View, create, and complete reminders via Apple Reminders (EventKit)
+- **Scheduled Automations** — Morning briefing at 7:00 (calendar + reminders + emails), evening light check at 23:00
 - **Access Control** — First user to `/start` becomes admin; no one else can use the bot
 
 ## Architecture
@@ -18,7 +20,9 @@ Telegram → telegram_bot.py → Claude API (brain)
                             → hue.py (lights)
                             → FRITZ!Box API (network)
                             → LinkedIn API (posts)
-                            → macOS Mail (emails via AppleScript)
+                            → IMAP (emails)
+                            → sqlite3 + AppleScript (calendar)
+                            → reminders_helper (EventKit binary)
 ```
 
 ## Setup
@@ -26,9 +30,10 @@ Telegram → telegram_bot.py → Claude API (brain)
 ### Prerequisites
 
 - Python 3.9+
-- macOS (for email integration via AppleScript)
+- macOS (for calendar and reminders integration)
 - Philips Hue Bridge
 - FRITZ!Box router (for network monitoring)
+- Swift compiler (for building reminders helper)
 
 ### Installation
 
@@ -37,6 +42,14 @@ pip install -r requirements.txt
 ```
 
 > **Note:** python-telegram-bot v22+ has compatibility issues with Python 3.9 when using the job queue. The requirements.txt pins v21.x which works reliably.
+
+Build the reminders helper (uses EventKit instead of AppleScript to avoid iCloud sync freezes):
+
+```bash
+swiftc reminders_helper.swift -o ~/reminders_helper -framework EventKit
+```
+
+> On first run, macOS will prompt for Reminders access — grant it.
 
 ### Configuration
 
@@ -50,6 +63,9 @@ export HUE_API_KEY="your-hue-api-key"
 export FRITZ_IP="192.168.178.1"
 export FRITZ_USER="your-fritz-user"
 export FRITZ_PASS="your-fritz-password"
+export IMAP_SERVER="imap.mail.me.com"
+export IMAP_USER="your-email@icloud.com"
+export IMAP_PASS="your-app-specific-password"
 ```
 
 **Telegram Bot Token:** Message [@BotFather](https://t.me/BotFather) on Telegram, send `/newbot`, and follow the steps.
@@ -62,6 +78,10 @@ curl -X POST http://YOUR_HUE_IP/api -d '{"devicetype":"home-bot"}'
 ```
 
 **LinkedIn:** Run `linkedin_auth.py` to complete the OAuth2 flow.
+
+**Email (iCloud):** Generate an app-specific password at [appleid.apple.com](https://appleid.apple.com) → Sign-In & Security → App-Specific Passwords.
+
+**Calendar:** Requires Full Disk Access for `/bin/bash` (System Settings → Privacy & Security → Full Disk Access) to read the Calendar sqlite database.
 
 ### Run
 
@@ -96,7 +116,13 @@ Just chat with the bot in Telegram:
 - "Who's on the WiFi?"
 - "Post to LinkedIn: Excited about AI home automation!"
 - "Do I have new emails?"
-- "Write me a comment for this LinkedIn post: [paste]"
+- "What's on my calendar today?"
+- "Create a meeting tomorrow at 2pm"
+- "Move the meeting to Thursday"
+- "Delete the coffee appointment"
+- "What reminders do I have?"
+- "Remind me to call the dentist on Friday"
+- "Dentist done"
 
 ## License
 
