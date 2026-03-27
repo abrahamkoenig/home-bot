@@ -861,21 +861,29 @@ async def scheduled_morgen_briefing(context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     load_admins()
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
+    app = (Application.builder()
+           .token(TELEGRAM_TOKEN)
+           .read_timeout(10)
+           .write_timeout(10)
+           .connect_timeout(10)
+           .pool_timeout(5)
+           .build())
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("hue", hue_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
-    # Schedule daily jobs
+    # Schedule daily jobs (misfire_grace_time=300 so jobs aren't dropped if slightly late)
     job_queue = app.job_queue
     cet = datetime.timezone(datetime.timedelta(hours=1))
-    job_queue.run_daily(scheduled_morgen_briefing, time=datetime.time(hour=7, minute=0, tzinfo=cet))
-    job_queue.run_daily(scheduled_abend_check, time=datetime.time(hour=23, minute=0, tzinfo=cet))
+    job_queue.run_daily(scheduled_morgen_briefing, time=datetime.time(hour=7, minute=0, tzinfo=cet),
+                        job_kwargs={"misfire_grace_time": 300})
+    job_queue.run_daily(scheduled_abend_check, time=datetime.time(hour=23, minute=0, tzinfo=cet),
+                        job_kwargs={"misfire_grace_time": 300})
 
     print("Bot running... (Morning briefing 7:00, Evening check 23:00)")
-    app.run_polling()
+    app.run_polling(poll_interval=0.0, timeout=10)
 
 
 if __name__ == "__main__":
